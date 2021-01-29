@@ -348,3 +348,10 @@ MigrationBackup/
 
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
+
+
+bin/
+
+/x64dbg_GolangAnalyzerPlugin/pluginsdk/*
+!/x64dbg_GolangAnalyzerPlugin/pluginsdk/capstone/
+!/x64dbg_GolangAnalyzerPlugin/pluginsdk/yara/

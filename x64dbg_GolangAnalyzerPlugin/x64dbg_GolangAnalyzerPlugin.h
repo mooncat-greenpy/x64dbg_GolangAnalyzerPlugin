@@ -8,6 +8,8 @@
 #include <map>
 #include "pluginsdk\_plugins.h"
 #include "util.h"
+#include "menu.h"
+#include "gopclntab.h"
 
 
 #define PLUGIN_NAME "x64dbg_GolangAnalyzerPlugin"

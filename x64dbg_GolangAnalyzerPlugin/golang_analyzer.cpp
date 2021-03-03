@@ -48,7 +48,7 @@ bool analyze_functions(const GOPCLNTAB* gopclntab)
         unsigned long long func_size = 0;
         std::map<unsigned long long, std::string> file_line_comment_map = init_file_line_map(gopclntab, func_info_offset, &func_size);
 
-        DbgFunctionAdd((duint)func_addr_value, (duint)func_addr_value + (duint)func_size);
+        DbgFunctionAdd((duint)func_addr_value, (duint)func_addr_value + (duint)func_size - 1);
 
         if (get_line_enabled() && file_line_comment_map.size() > 0)
         {

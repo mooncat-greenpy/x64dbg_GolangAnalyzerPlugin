@@ -230,3 +230,38 @@ std::map<unsigned long long, std::string> init_file_line_map(const GOPCLNTAB* go
     *func_size = pc_offset;
     return file_line_comment_map;
 }
+
+
+std::map<unsigned long long, std::string> init_sp_map(const GOPCLNTAB* gopclntab, unsigned long long func_info_offset)
+{
+    std::map<unsigned long long, std::string> sp_comment_map;
+
+    unsigned int pcsp_offset = 0;
+    read_dbg_memory(gopclntab->addr + (duint)func_info_offset + gopclntab->pointer_size + 3 * 4, &pcsp_offset, 4);
+    long long sp_size = -1;
+    unsigned int i = 0;
+    bool first = true;
+    unsigned long long pc_offset = 0;
+    while (true) {
+        unsigned int decoded_sp_size_add = read_pc_data(gopclntab->addr + pcsp_offset, &i);
+        unsigned int byte_size = read_pc_data(gopclntab->addr + pcsp_offset, &i);
+        if (decoded_sp_size_add == 0 && !first)
+        {
+            break;
+        }
+
+        first = false;
+        unsigned long long key = pc_offset;
+        int sp_size_add = zig_zag_decode(decoded_sp_size_add);
+        sp_size += sp_size_add;
+        pc_offset += (unsigned long long)byte_size * gopclntab->quantum;
+
+        if (get_line_enabled())
+        {
+            char sp_string[MAX_PATH] = { 0 };
+            _snprintf_s(sp_string, sizeof(sp_string), MAX_PATH, "sp:%lld", sp_size);
+            sp_comment_map[key] = sp_string;
+        }
+    }
+    return sp_comment_map;
+}

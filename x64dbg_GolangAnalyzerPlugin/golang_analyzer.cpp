@@ -1,6 +1,31 @@
 #include "golang_analyzer.h"
 
 
+void make_comment_map(std::map<unsigned long long, std::string>& comment_map, unsigned long long* func_size, const GOPCLNTAB* gopclntab, unsigned long long func_info_offset)
+{
+    comment_map.clear();
+
+    std::vector<std::map<unsigned long long, std::string>> comment_info;
+    comment_info.push_back(init_file_line_map(gopclntab, func_info_offset, func_size));
+    comment_info.push_back(init_sp_map(gopclntab, func_info_offset));
+
+    for (auto& i : comment_info)
+    {
+        for (auto& j : i)
+        {
+            if (comment_map.count(j.first))
+            {
+                comment_map[j.first] += " " + j.second;
+            }
+            else
+            {
+                comment_map[j.first] = j.second;
+            }
+        }
+    }
+}
+
+
 bool analyze_functions(const GOPCLNTAB* gopclntab)
 {
     if (gopclntab == NULL)
@@ -46,20 +71,21 @@ bool analyze_functions(const GOPCLNTAB* gopclntab)
         }
 
         unsigned long long func_size = 0;
-        std::map<unsigned long long, std::string> file_line_comment_map = init_file_line_map(gopclntab, func_info_offset, &func_size);
+        std::map<unsigned long long, std::string> comment_map;
+        make_comment_map(comment_map, &func_size, gopclntab, func_info_offset);
 
         DbgFunctionAdd((duint)func_addr_value, (duint)func_addr_value + (duint)func_size - 1);
 
-        if (get_line_enabled() && file_line_comment_map.size() > 0)
+        if (get_line_enabled() && comment_map.size() > 0)
         {
-            for (auto j : file_line_comment_map)
+            for (auto& j : comment_map)
             {
                 DbgSetCommentAt((duint)func_addr_value + (duint)j.first, j.second.c_str());
             }
             char func_comment[MAX_COMMENT_SIZE] = { 0 };
             char comment[MAX_COMMENT_SIZE] = { 0 };
             DbgGetCommentAt((duint)func_addr_value, comment);
-            _snprintf_s(func_comment, sizeof(func_comment), _TRUNCATE, "%s %s", func_name, file_line_comment_map.at(0).c_str());
+            _snprintf_s(func_comment, sizeof(func_comment), _TRUNCATE, "%s %s", func_name, comment_map.at(0).c_str());
             DbgSetCommentAt((duint)func_addr_value, func_comment);
         }
     }

@@ -69,6 +69,10 @@ bool analyze_functions(const GOPCLNTAB* gopclntab)
         {
             return false;
         }
+        if (args_num >= 0x80000000)
+        {
+            args_num = 0;
+        }
 
         unsigned long long func_size = 0;
         std::map<unsigned long long, std::string> comment_map;
@@ -85,7 +89,7 @@ bool analyze_functions(const GOPCLNTAB* gopclntab)
             char func_comment[MAX_COMMENT_SIZE] = { 0 };
             char comment[MAX_COMMENT_SIZE] = { 0 };
             DbgGetCommentAt((duint)func_addr_value, comment);
-            _snprintf_s(func_comment, sizeof(func_comment), _TRUNCATE, "%s %s", func_name, comment_map.at(0).c_str());
+            _snprintf_s(func_comment, sizeof(func_comment), _TRUNCATE, "%s args:%d %s", func_name, args_num, comment_map.at(0).c_str());
             DbgSetCommentAt((duint)func_addr_value, func_comment);
         }
     }

@@ -33,11 +33,21 @@ bool get_gopclntab(GOPCLNTAB* gopclntab)
         }
 
         unsigned char go12_gopclntab_magic[] = { 0xfb, 0xff, 0xff, 0xff };
+        unsigned char go16_gopclntab_magic[] = { 0xfa, 0xff, 0xff, 0xff };
         for (size_t j = 0; j < resion_size - sizeof(go12_gopclntab_magic) - 32; j++)
         {
+            *gopclntab = {};
             if (memcmp(mem_data + j, go12_gopclntab_magic, sizeof(go12_gopclntab_magic)))
             {
-                continue;
+                if (memcmp(mem_data + j, go16_gopclntab_magic, sizeof(go16_gopclntab_magic)))
+                {
+                    continue;
+                }
+                gopclntab->version = GO_VERSION::GO_116;
+            }
+            else
+            {
+                gopclntab->version = GO_VERSION::GO_112;
             }
             unsigned char* tmp_gopclntab_base = mem_data + j;
             memcpy_s(gopclntab, sizeof(GOPCLNTAB), tmp_gopclntab_base, 8);
@@ -49,6 +59,13 @@ bool get_gopclntab(GOPCLNTAB* gopclntab)
             memcpy_s(&gopclntab->func_num, sizeof(gopclntab->func_num), tmp_gopclntab_base + 8, 4);// gopclntab->pointer_size);
 
             unsigned char* func_list_base = tmp_gopclntab_base + 8 + gopclntab->pointer_size;
+            if (gopclntab->version == GO_116)
+            {
+                unsigned char* tmp_addr = tmp_gopclntab_base + 8 + gopclntab->pointer_size * 6;
+                unsigned long long tmp_value = 0;
+                memcpy_s(&tmp_value, sizeof(tmp_value), tmp_addr, gopclntab->pointer_size);
+                func_list_base = tmp_gopclntab_base + tmp_value;
+            }
             unsigned long long func_info_offset = 0;
             memcpy_s(&func_info_offset, sizeof(func_info_offset), func_list_base + gopclntab->pointer_size, gopclntab->pointer_size);
             if (tmp_gopclntab_base + func_info_offset + 8 >= mem_data + resion_size)
@@ -59,7 +76,12 @@ bool get_gopclntab(GOPCLNTAB* gopclntab)
             unsigned long long func_addr_value = 0;
             memcpy_s(&func_addr_value, sizeof(func_addr_value), func_list_base, gopclntab->pointer_size);
             unsigned long long func_entry_value = 0;
-            memcpy_s(&func_entry_value, sizeof(func_entry_value), tmp_gopclntab_base + func_info_offset, gopclntab->pointer_size);
+            unsigned char* func_entry_value_base = tmp_gopclntab_base;
+            if (gopclntab->version == GO_116)
+            {
+                func_entry_value_base = func_list_base;
+            }
+            memcpy_s(&func_entry_value, sizeof(func_entry_value), func_entry_value_base + func_info_offset, gopclntab->pointer_size);
             if (func_addr_value == func_entry_value && func_addr_value != 0) {
                 gopclntab->addr = (duint)(tmp_gopclntab_base - mem_data + mem_addr);
                 gopclntab->func_list_base = (duint)(func_list_base - mem_data + mem_addr);
@@ -77,7 +99,7 @@ bool get_gopclntab(GOPCLNTAB* gopclntab)
         }
         delete[] mem_data;
     }
-    return true;
+    return false;
 }
 
 
@@ -86,6 +108,10 @@ bool analyze_file_name(const GOPCLNTAB* gopclntab)
     if (gopclntab == NULL)
     {
         return false;
+    }
+    if (gopclntab->version == GO_116)
+    {
+        return true;
     }
 
     unsigned int size = 0;
@@ -155,18 +181,29 @@ unsigned int read_pc_data(duint addr, unsigned int* i)
 }
 
 
-bool pc_to_file_name(const GOPCLNTAB* gopclntab, unsigned long long func_info_offset, unsigned long long target_pc_offset, char* file_name, size_t file_name_size)
+bool pc_to_file_name(const GOPCLNTAB* gopclntab, duint func_info_addr, unsigned long long target_pc_offset, char* file_name, size_t file_name_size)
 {
     unsigned int pcfile_offset = 0;
-    read_dbg_memory(gopclntab->addr + (duint)func_info_offset + gopclntab->pointer_size + 4 * 4, &pcfile_offset, 4);
+    read_dbg_memory(func_info_addr + gopclntab->pointer_size + 4 * 4, &pcfile_offset, 4);
+    duint pcfile_base = gopclntab->addr + pcfile_offset;
+    if (gopclntab->version == GO_116)
+    {
+        unsigned long long tmp_value = 0;
+        if (!read_dbg_memory(gopclntab->addr + 8 + gopclntab->pointer_size * 5, &tmp_value, gopclntab->pointer_size))
+        {
+            return false;
+        }
+        pcfile_base = gopclntab->addr + tmp_value + pcfile_offset;
+    }
+
     long long file_no = -1;
     unsigned int i = 0;
     boolean first = true;
     unsigned long long pc_offset = 0;
     while (true)
     {
-        unsigned int decoded_file_no_add = read_pc_data(gopclntab->addr + pcfile_offset, &i);
-        unsigned int byte_size = read_pc_data(gopclntab->addr + pcfile_offset, &i);
+        unsigned int decoded_file_no_add = read_pc_data(pcfile_base, &i);
+        unsigned int byte_size = read_pc_data(pcfile_base, &i);
         if (decoded_file_no_add == 0 && !first) {
             break;
         }
@@ -177,6 +214,37 @@ bool pc_to_file_name(const GOPCLNTAB* gopclntab, unsigned long long func_info_of
 
         if (target_pc_offset <= pc_offset)
         {
+            if (gopclntab->version == GO_116)
+            {
+                unsigned int cu_offset = 0;
+                if (!read_dbg_memory(func_info_addr + gopclntab->pointer_size + 4 * 7, &cu_offset, 4))
+                {
+                    return false;
+                }
+                unsigned long long tmp_value = 0;
+                if (!read_dbg_memory(gopclntab->addr + 8 + gopclntab->pointer_size * 3, &tmp_value, gopclntab->pointer_size))
+                {
+                    return false;
+                }
+                duint cutab_base = gopclntab->addr + tmp_value;
+                unsigned int file_no_offset = 0;
+                if (!read_dbg_memory(cutab_base + (cu_offset + file_no) * 4, &file_no_offset, 4))
+                {
+                    return false;
+                }
+                if (!read_dbg_memory(gopclntab->addr + 8 + gopclntab->pointer_size * 4, &tmp_value, gopclntab->pointer_size))
+                {
+                    return false;
+                }
+                duint file_name_addr = gopclntab->addr + tmp_value + file_no_offset;
+                char tmp_file_name[MAX_PATH] = {};
+                if (!read_dbg_memory(file_name_addr, tmp_file_name, sizeof(tmp_file_name)))
+                {
+                    return false;
+                }
+                strncpy_s(file_name, file_name_size, tmp_file_name, _TRUNCATE);
+                return true;
+            }
             if ((int)file_no - 1 < 0 || file_name_list.size() <= (size_t)file_no - 1)
             {
                 goanalyzer_logprintf("Error file name list index out of range: %#x\n", (int)file_no - 1);
@@ -190,20 +258,31 @@ bool pc_to_file_name(const GOPCLNTAB* gopclntab, unsigned long long func_info_of
 }
 
 
-std::map<unsigned long long, std::string> init_file_line_map(const GOPCLNTAB* gopclntab, unsigned long long func_info_offset, unsigned long long* func_size)
+std::map<unsigned long long, std::string> init_file_line_map(const GOPCLNTAB* gopclntab, duint func_info_addr, unsigned long long* func_size)
 {
     std::map<unsigned long long, std::string> file_line_comment_map;
     file_line_comment_map.clear();
 
     unsigned int pcln_offset = 0;
-    read_dbg_memory(gopclntab->addr + (duint)func_info_offset + gopclntab->pointer_size + 5 * 4, &pcln_offset, 4);
+    read_dbg_memory(func_info_addr + gopclntab->pointer_size + 5 * 4, &pcln_offset, 4);
+    duint pcln_base = gopclntab->addr + pcln_offset;
+    if (gopclntab->version == GO_116)
+    {
+        unsigned long long tmp_value = 0;
+        if (!read_dbg_memory(gopclntab->addr + 8 + gopclntab->pointer_size * 5, &tmp_value, gopclntab->pointer_size))
+        {
+            return file_line_comment_map;
+        }
+        pcln_base = gopclntab->addr + tmp_value + pcln_offset;
+    }
+
     long long line_num = -1;
     unsigned int i = 0;
     bool first = true;
     unsigned long long pc_offset = 0;
     while (true) {
-        unsigned int decoded_line_num_add = read_pc_data(gopclntab->addr + pcln_offset, &i);
-        unsigned int byte_size = read_pc_data(gopclntab->addr + pcln_offset, &i);
+        unsigned int decoded_line_num_add = read_pc_data(pcln_base, &i);
+        unsigned int byte_size = read_pc_data(pcln_base, &i);
         if (decoded_line_num_add == 0 && !first)
         {
             break;
@@ -218,7 +297,7 @@ std::map<unsigned long long, std::string> init_file_line_map(const GOPCLNTAB* go
         if (get_line_enabled())
         {
             char file_name[MAX_PATH] = "not found";
-            if (!pc_to_file_name(gopclntab, func_info_offset, pc_offset, file_name, sizeof(file_name))) {
+            if (!pc_to_file_name(gopclntab, func_info_addr, pc_offset, file_name, sizeof(file_name))) {
                 strncpy_s(file_name, sizeof(file_name), "not found", _TRUNCATE);
             }
 
@@ -232,19 +311,30 @@ std::map<unsigned long long, std::string> init_file_line_map(const GOPCLNTAB* go
 }
 
 
-std::map<unsigned long long, std::string> init_sp_map(const GOPCLNTAB* gopclntab, unsigned long long func_info_offset)
+std::map<unsigned long long, std::string> init_sp_map(const GOPCLNTAB* gopclntab, duint func_info_addr)
 {
     std::map<unsigned long long, std::string> sp_comment_map;
 
     unsigned int pcsp_offset = 0;
-    read_dbg_memory(gopclntab->addr + (duint)func_info_offset + gopclntab->pointer_size + 3 * 4, &pcsp_offset, 4);
+    read_dbg_memory(func_info_addr + gopclntab->pointer_size + 3 * 4, &pcsp_offset, 4);
+    duint pcsp_base = gopclntab->addr + pcsp_offset;
+    if (gopclntab->version == GO_116)
+    {
+        unsigned long long tmp_value = 0;
+        if (!read_dbg_memory(gopclntab->addr + 8 + gopclntab->pointer_size * 5, &tmp_value, gopclntab->pointer_size))
+        {
+            return sp_comment_map;
+        }
+        pcsp_base = gopclntab->addr + tmp_value + pcsp_offset;
+    }
+
     long long sp_size = -1;
     unsigned int i = 0;
     bool first = true;
     unsigned long long pc_offset = 0;
     while (true) {
-        unsigned int decoded_sp_size_add = read_pc_data(gopclntab->addr + pcsp_offset, &i);
-        unsigned int byte_size = read_pc_data(gopclntab->addr + pcsp_offset, &i);
+        unsigned int decoded_sp_size_add = read_pc_data(pcsp_base, &i);
+        unsigned int byte_size = read_pc_data(pcsp_base, &i);
         if (decoded_sp_size_add == 0 && !first)
         {
             break;

@@ -353,5 +353,3 @@ MigrationBackup/
 bin/
 
 /x64dbg_GolangAnalyzerPlugin/pluginsdk/*
-!/x64dbg_GolangAnalyzerPlugin/pluginsdk/capstone/
-!/x64dbg_GolangAnalyzerPlugin/pluginsdk/yara/

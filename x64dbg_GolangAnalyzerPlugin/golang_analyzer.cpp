@@ -1,11 +1,11 @@
 #include "golang_analyzer.h"
 
 
-void make_comment_map(std::map<unsigned long long, std::string>& comment_map, unsigned long long* func_size, const GOPCLNTAB* gopclntab, duint func_info_addr)
+void make_comment_map(std::map<uint64_t, std::string>& comment_map, uint64_t* func_size, const GOPCLNTAB* gopclntab, duint func_info_addr)
 {
     comment_map.clear();
 
-    std::vector<std::map<unsigned long long, std::string>> comment_info;
+    std::vector<std::map<uint64_t, std::string>> comment_info;
     comment_info.push_back(init_file_line_map(gopclntab, func_info_addr, func_size));
     comment_info.push_back(init_sp_map(gopclntab, func_info_addr));
 
@@ -33,29 +33,29 @@ bool analyze_functions(const GOPCLNTAB* gopclntab)
         return false;
     }
 
-    for (long long i = 0; i < gopclntab->func_num; i++)
+    for (uint32_t i = 0; i < gopclntab->func_num; i++)
     {
-        unsigned long long func_addr_value = 0;
+        uint64_t func_addr_value = 0;
         if (!read_dbg_memory(gopclntab->func_list_base + (duint)i * gopclntab->pointer_size * 2, &func_addr_value, gopclntab->pointer_size))
         {
             return false;
         }
-        unsigned long long func_info_offset = 0;
+        uint64_t func_info_offset = 0;
         if (!read_dbg_memory(gopclntab->func_list_base + (duint)i * gopclntab->pointer_size * 2 + gopclntab->pointer_size, &func_info_offset, gopclntab->pointer_size))
         {
             return false;
         }
-        duint func_info_addr = gopclntab->addr + func_info_offset;
-        if (gopclntab->version == GO_116)
+        duint func_info_addr = gopclntab->addr + (duint)func_info_offset;
+        if (gopclntab->version == GO_VERSION::GO_116)
         {
-            func_info_addr = gopclntab->func_list_base + func_info_offset;
+            func_info_addr = gopclntab->func_list_base + (duint)func_info_offset;
         }
-        unsigned long long func_entry_value = 0;
+        uint64_t func_entry_value = 0;
         if (!read_dbg_memory(func_info_addr, &func_entry_value, gopclntab->pointer_size))
         {
             return false;
         }
-        unsigned long long func_name_offset = 0;
+        uint64_t func_name_offset = 0;
         if (!read_dbg_memory(func_info_addr + gopclntab->pointer_size, &func_name_offset, 4))
         {
             return false;
@@ -63,14 +63,14 @@ bool analyze_functions(const GOPCLNTAB* gopclntab)
 
         char func_name[MAX_PATH] = { 0 };
         duint func_name_base = gopclntab->addr;
-        if (gopclntab->version == GO_116)
+        if (gopclntab->version == GO_VERSION::GO_116)
         {
-            unsigned long long tmp_value = 0;
+            uint64_t tmp_value = 0;
             if (!read_dbg_memory(gopclntab->addr + 8 + gopclntab->pointer_size * 2, &tmp_value, gopclntab->pointer_size))
             {
                 return false;
             }
-            func_name_base = gopclntab->addr + tmp_value;
+            func_name_base = gopclntab->addr + (duint)tmp_value;
         }
         if (!read_dbg_memory(func_name_base + (duint)func_name_offset, func_name, sizeof(func_name)))
         {
@@ -79,7 +79,7 @@ bool analyze_functions(const GOPCLNTAB* gopclntab)
         func_name[sizeof(func_name) - 1] = '\0';
         DbgSetLabelAt((duint)func_addr_value, func_name);
 
-        unsigned int args_num = 0;
+        uint32_t args_num = 0;
         if (!read_dbg_memory(func_info_addr + gopclntab->pointer_size + 4, &args_num, 4))
         {
             return false;
@@ -89,8 +89,8 @@ bool analyze_functions(const GOPCLNTAB* gopclntab)
             args_num = 0;
         }
 
-        unsigned long long func_size = 0;
-        std::map<unsigned long long, std::string> comment_map;
+        uint64_t func_size = 0;
+        std::map<uint64_t, std::string> comment_map;
         make_comment_map(comment_map, &func_size, gopclntab, func_info_addr);
 
         DbgFunctionAdd((duint)func_addr_value, (duint)func_addr_value + (duint)func_size - 1);

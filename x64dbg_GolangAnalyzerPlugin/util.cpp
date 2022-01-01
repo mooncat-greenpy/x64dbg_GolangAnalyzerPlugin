@@ -1,7 +1,7 @@
 #include "util.h"
 
 
-int zig_zag_decode(unsigned int value)
+int32_t zig_zag_decode(uint32_t value)
 {
     if ((value & 1) != 0) {
         value = (value >> 1) + 1;

@@ -9,5 +9,5 @@
 #define logputs(text) _plugin_logputs(text)
 
 
-int zig_zag_decode(unsigned int);
+int32_t zig_zag_decode(uint32_t value);
 bool read_dbg_memory(duint va, void* dest, duint size);

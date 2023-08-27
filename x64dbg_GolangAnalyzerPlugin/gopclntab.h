@@ -5,8 +5,10 @@
 enum class GO_VERSION
 {
     UNKNOWN,
-    GO_112,
+    GO_12,
     GO_116,
+    GO_118,
+    GO_120,
 };
 
 struct GOPCLNTAB

@@ -35,38 +35,49 @@ bool analyze_functions(const GOPCLNTAB* gopclntab)
 
     for (uint32_t i = 0; i < gopclntab->func_num; i++)
     {
+        uint64_t functab_field_size = gopclntab->version == GO_VERSION::GO_118 || gopclntab->version == GO_VERSION::GO_120 ? 4 : gopclntab->pointer_size;
+
         uint64_t func_addr_value = 0;
-        if (!read_dbg_memory(gopclntab->func_list_base + (duint)i * gopclntab->pointer_size * 2, &func_addr_value, gopclntab->pointer_size))
+        if (!read_dbg_memory(gopclntab->func_list_base + (duint)i * functab_field_size * 2, &func_addr_value, functab_field_size))
         {
             return false;
         }
+        if (gopclntab->version == GO_VERSION::GO_118 || gopclntab->version == GO_VERSION::GO_120)
+        {
+            uint64_t text_addr = 0;
+            if (!read_dbg_memory(gopclntab->addr + 8 + (uint32_t)gopclntab->pointer_size * 2, &text_addr, gopclntab->pointer_size))
+            {
+                return false;
+            }
+            func_addr_value += text_addr;
+        }
         uint64_t func_info_offset = 0;
-        if (!read_dbg_memory(gopclntab->func_list_base + (duint)i * gopclntab->pointer_size * 2 + gopclntab->pointer_size, &func_info_offset, gopclntab->pointer_size))
+        if (!read_dbg_memory(gopclntab->func_list_base + (duint)i * functab_field_size * 2 + functab_field_size, &func_info_offset, functab_field_size))
         {
             return false;
         }
         duint func_info_addr = gopclntab->addr + (duint)func_info_offset;
-        if (gopclntab->version == GO_VERSION::GO_116)
+        if (gopclntab->version == GO_VERSION::GO_116 || gopclntab->version == GO_VERSION::GO_118 || gopclntab->version == GO_VERSION::GO_120)
         {
             func_info_addr = gopclntab->func_list_base + (duint)func_info_offset;
         }
         uint64_t func_entry_value = 0;
-        if (!read_dbg_memory(func_info_addr, &func_entry_value, gopclntab->pointer_size))
+        if (!read_dbg_memory(func_info_addr, &func_entry_value, functab_field_size))
         {
             return false;
         }
         uint64_t func_name_offset = 0;
-        if (!read_dbg_memory(func_info_addr + gopclntab->pointer_size, &func_name_offset, 4))
+        if (!read_dbg_memory(func_info_addr + functab_field_size, &func_name_offset, 4))
         {
             return false;
         }
 
         char func_name[MAX_PATH] = { 0 };
         duint func_name_base = gopclntab->addr;
-        if (gopclntab->version == GO_VERSION::GO_116)
+        if (gopclntab->version == GO_VERSION::GO_116 || gopclntab->version == GO_VERSION::GO_118 || gopclntab->version == GO_VERSION::GO_120)
         {
             uint64_t tmp_value = 0;
-            if (!read_dbg_memory(gopclntab->addr + 8 + gopclntab->pointer_size * 2, &tmp_value, gopclntab->pointer_size))
+            if (!read_dbg_memory(gopclntab->addr + 8 + (uint32_t)gopclntab->pointer_size * (gopclntab->version == GO_VERSION::GO_116 ? 2 : 3), &tmp_value, gopclntab->pointer_size))
             {
                 return false;
             }
@@ -80,7 +91,7 @@ bool analyze_functions(const GOPCLNTAB* gopclntab)
         DbgSetLabelAt((duint)func_addr_value, func_name);
 
         uint32_t args_num = 0;
-        if (!read_dbg_memory(func_info_addr + gopclntab->pointer_size + 4, &args_num, 4))
+        if (!read_dbg_memory(func_info_addr + functab_field_size + 4, &args_num, 4))
         {
             return false;
         }

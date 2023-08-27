@@ -33,22 +33,33 @@ bool get_gopclntab(GOPCLNTAB* gopclntab)
         }
 
         uint8_t go12_gopclntab_magic[] = { 0xfb, 0xff, 0xff, 0xff };
-        uint8_t go16_gopclntab_magic[] = { 0xfa, 0xff, 0xff, 0xff };
+        uint8_t go116_gopclntab_magic[] = { 0xfa, 0xff, 0xff, 0xff };
+        uint8_t go118_gopclntab_magic[] = { 0xf0, 0xff, 0xff, 0xff };
+        uint8_t go120_gopclntab_magic[] = { 0xf1, 0xff, 0xff, 0xff };
         for (size_t j = 0; j < resion_size - sizeof(go12_gopclntab_magic) - 32; j++)
         {
             *gopclntab = {};
-            if (memcmp(mem_data + j, go12_gopclntab_magic, sizeof(go12_gopclntab_magic)))
+            if (!memcmp(mem_data + j, go12_gopclntab_magic, sizeof(go12_gopclntab_magic)))
             {
-                if (memcmp(mem_data + j, go16_gopclntab_magic, sizeof(go16_gopclntab_magic)))
-                {
-                    continue;
-                }
+                gopclntab->version = GO_VERSION::GO_12;
+            }
+            else if (!memcmp(mem_data + j, go116_gopclntab_magic, sizeof(go116_gopclntab_magic)))
+            {
                 gopclntab->version = GO_VERSION::GO_116;
+            }
+            else if (!memcmp(mem_data + j, go118_gopclntab_magic, sizeof(go118_gopclntab_magic)))
+            {
+                gopclntab->version = GO_VERSION::GO_118;
+            }
+            else if (!memcmp(mem_data + j, go120_gopclntab_magic, sizeof(go120_gopclntab_magic)))
+            {
+                gopclntab->version = GO_VERSION::GO_120;
             }
             else
             {
-                gopclntab->version = GO_VERSION::GO_112;
+                continue;
             }
+
             uint8_t* tmp_gopclntab_base = mem_data + j;
             memcpy_s(gopclntab, sizeof(GOPCLNTAB), tmp_gopclntab_base, 8);
 
@@ -56,33 +67,55 @@ bool get_gopclntab(GOPCLNTAB* gopclntab)
                 (gopclntab->pointer_size != 4 && gopclntab->pointer_size != 8)) {
                 continue;
             }
-            memcpy_s(&gopclntab->func_num, sizeof(gopclntab->func_num), tmp_gopclntab_base + 8, 4);// gopclntab->pointer_size);
+            memcpy_s(&gopclntab->func_num, sizeof(gopclntab->func_num), tmp_gopclntab_base + 8, 4);
 
-            uint8_t* func_list_base = tmp_gopclntab_base + 8 + gopclntab->pointer_size;
-            if (gopclntab->version == GO_VERSION::GO_116)
+            uint8_t* func_list_base;
+            if (gopclntab->version == GO_VERSION::GO_118 || gopclntab->version == GO_VERSION::GO_120)
             {
-                uint8_t* tmp_addr = tmp_gopclntab_base + 8 + gopclntab->pointer_size * 6;
+                uint8_t* tmp_addr = tmp_gopclntab_base + 8 + (uint32_t)gopclntab->pointer_size * 7;
                 uint64_t tmp_value = 0;
                 memcpy_s(&tmp_value, sizeof(tmp_value), tmp_addr, gopclntab->pointer_size);
                 func_list_base = tmp_gopclntab_base + tmp_value;
             }
+            else if (gopclntab->version == GO_VERSION::GO_116)
+            {
+                uint8_t* tmp_addr = tmp_gopclntab_base + 8 + (uint32_t)gopclntab->pointer_size * 6;
+                uint64_t tmp_value = 0;
+                memcpy_s(&tmp_value, sizeof(tmp_value), tmp_addr, gopclntab->pointer_size);
+                func_list_base = tmp_gopclntab_base + tmp_value;
+            }
+            else
+            {
+                func_list_base = tmp_gopclntab_base + 8 + gopclntab->pointer_size;
+            }
+            if (func_list_base + 8 * 2 >= mem_data + resion_size)
+            {
+                continue;
+            }
+
+            uint64_t functab_field_size = gopclntab->version == GO_VERSION::GO_118 || gopclntab->version == GO_VERSION::GO_120 ? 4 : gopclntab->pointer_size;
             uint64_t func_info_offset = 0;
-            memcpy_s(&func_info_offset, sizeof(func_info_offset), func_list_base + gopclntab->pointer_size, gopclntab->pointer_size);
+            memcpy_s(&func_info_offset, sizeof(func_info_offset), func_list_base + functab_field_size, functab_field_size);
             if (tmp_gopclntab_base + func_info_offset + 8 >= mem_data + resion_size)
             {
                 continue;
             }
 
             uint64_t func_addr_value = 0;
-            memcpy_s(&func_addr_value, sizeof(func_addr_value), func_list_base, gopclntab->pointer_size);
+            memcpy_s(&func_addr_value, sizeof(func_addr_value), func_list_base, functab_field_size);
+
             uint64_t func_entry_value = 0;
-            uint8_t* func_entry_value_base = tmp_gopclntab_base;
-            if (gopclntab->version == GO_VERSION::GO_116)
+            uint8_t* func_entry_value_base;
+            if (gopclntab->version == GO_VERSION::GO_116 || gopclntab->version == GO_VERSION::GO_118 || gopclntab->version == GO_VERSION::GO_120)
             {
                 func_entry_value_base = func_list_base;
             }
-            memcpy_s(&func_entry_value, sizeof(func_entry_value), func_entry_value_base + func_info_offset, gopclntab->pointer_size);
-            if (func_addr_value == func_entry_value && func_addr_value != 0) {
+            else
+            {
+                func_entry_value_base = tmp_gopclntab_base;
+            }
+            memcpy_s(&func_entry_value, sizeof(func_entry_value), func_entry_value_base + func_info_offset, functab_field_size);
+            if (func_addr_value == func_entry_value && (gopclntab->version == GO_VERSION::GO_118 || gopclntab->version == GO_VERSION::GO_120 || func_addr_value != 0)) {
                 gopclntab->addr = (duint)(tmp_gopclntab_base - mem_data + mem_addr);
                 gopclntab->func_list_base = (duint)(func_list_base - mem_data + mem_addr);
                 gopclntab->func_info_offset = func_info_offset;
@@ -109,7 +142,7 @@ bool analyze_file_name(const GOPCLNTAB* gopclntab)
     {
         return false;
     }
-    if (gopclntab->version == GO_VERSION::GO_116)
+    if (gopclntab->version == GO_VERSION::GO_116 || gopclntab->version == GO_VERSION::GO_118 || gopclntab->version == GO_VERSION::GO_120)
     {
         return true;
     }
@@ -183,13 +216,15 @@ uint32_t read_pc_data(duint addr, uint32_t* i)
 
 bool pc_to_file_name(const GOPCLNTAB* gopclntab, duint func_info_addr, uint64_t target_pc_offset, char* file_name, size_t file_name_size)
 {
+    uint64_t functab_field_size = gopclntab->version == GO_VERSION::GO_118 || gopclntab->version == GO_VERSION::GO_120 ? 4 : gopclntab->pointer_size;
+
     uint32_t pcfile_offset = 0;
-    read_dbg_memory(func_info_addr + gopclntab->pointer_size + 4 * 4, &pcfile_offset, 4);
+    read_dbg_memory(func_info_addr + functab_field_size + 4 * 4, &pcfile_offset, 4);
     duint pcfile_base = gopclntab->addr + pcfile_offset;
-    if (gopclntab->version == GO_VERSION::GO_116)
+    if (gopclntab->version == GO_VERSION::GO_116 || gopclntab->version == GO_VERSION::GO_118 || gopclntab->version == GO_VERSION::GO_120)
     {
         uint64_t tmp_value = 0;
-        if (!read_dbg_memory(gopclntab->addr + 8 + gopclntab->pointer_size * 5, &tmp_value, gopclntab->pointer_size))
+        if (!read_dbg_memory(gopclntab->addr + 8 + gopclntab->pointer_size * (gopclntab->version == GO_VERSION::GO_116 ? 5 : 6), &tmp_value, gopclntab->pointer_size))
         {
             return false;
         }
@@ -214,15 +249,15 @@ bool pc_to_file_name(const GOPCLNTAB* gopclntab, duint func_info_addr, uint64_t 
 
         if (target_pc_offset <= pc_offset)
         {
-            if (gopclntab->version == GO_VERSION::GO_116)
+            if (gopclntab->version == GO_VERSION::GO_116 || gopclntab->version == GO_VERSION::GO_118 || gopclntab->version == GO_VERSION::GO_120)
             {
                 uint32_t cu_offset = 0;
-                if (!read_dbg_memory(func_info_addr + gopclntab->pointer_size + 4 * 7, &cu_offset, 4))
+                if (!read_dbg_memory(func_info_addr + functab_field_size + 4 * 7, &cu_offset, 4))
                 {
                     return false;
                 }
                 uint64_t tmp_value = 0;
-                if (!read_dbg_memory(gopclntab->addr + 8 + gopclntab->pointer_size * 3, &tmp_value, gopclntab->pointer_size))
+                if (!read_dbg_memory(gopclntab->addr + 8 + gopclntab->pointer_size * (gopclntab->version == GO_VERSION::GO_116 ? 3 : 4), &tmp_value, gopclntab->pointer_size))
                 {
                     return false;
                 }
@@ -232,7 +267,7 @@ bool pc_to_file_name(const GOPCLNTAB* gopclntab, duint func_info_addr, uint64_t 
                 {
                     return false;
                 }
-                if (!read_dbg_memory(gopclntab->addr + 8 + gopclntab->pointer_size * 4, &tmp_value, gopclntab->pointer_size))
+                if (!read_dbg_memory(gopclntab->addr + 8 + gopclntab->pointer_size * (gopclntab->version == GO_VERSION::GO_116 ? 4 : 5), &tmp_value, gopclntab->pointer_size))
                 {
                     return false;
                 }
@@ -263,17 +298,22 @@ std::map<uint64_t, std::string> init_file_line_map(const GOPCLNTAB* gopclntab, d
     std::map<uint64_t, std::string> file_line_comment_map;
     file_line_comment_map.clear();
 
+    uint64_t functab_field_size = gopclntab->version == GO_VERSION::GO_118 || gopclntab->version == GO_VERSION::GO_120 ? 4 : gopclntab->pointer_size;
     uint32_t pcln_offset = 0;
-    read_dbg_memory(func_info_addr + gopclntab->pointer_size + 5 * 4, &pcln_offset, 4);
-    duint pcln_base = gopclntab->addr + pcln_offset;
-    if (gopclntab->version == GO_VERSION::GO_116)
+    read_dbg_memory(func_info_addr + functab_field_size + 5 * 4, &pcln_offset, 4);
+    duint pcln_base;
+    if (gopclntab->version == GO_VERSION::GO_116 || gopclntab->version == GO_VERSION::GO_118 || gopclntab->version == GO_VERSION::GO_120)
     {
         uint64_t tmp_value = 0;
-        if (!read_dbg_memory(gopclntab->addr + 8 + gopclntab->pointer_size * 5, &tmp_value, gopclntab->pointer_size))
+        if (!read_dbg_memory(gopclntab->addr + 8 + (uint32_t)gopclntab->pointer_size * (gopclntab->version == GO_VERSION::GO_116 ? 5 : 6), &tmp_value, gopclntab->pointer_size))
         {
             return file_line_comment_map;
         }
         pcln_base = gopclntab->addr + (duint)tmp_value + pcln_offset;
+    }
+    else
+    {
+        pcln_base = gopclntab->addr + pcln_offset;
     }
 
     int64_t line_num = -1;
@@ -315,13 +355,14 @@ std::map<uint64_t, std::string> init_sp_map(const GOPCLNTAB* gopclntab, duint fu
 {
     std::map<uint64_t, std::string> sp_comment_map;
 
+    uint64_t functab_field_size = gopclntab->version == GO_VERSION::GO_118 || gopclntab->version == GO_VERSION::GO_120 ? 4 : gopclntab->pointer_size;
     uint32_t pcsp_offset = 0;
-    read_dbg_memory(func_info_addr + gopclntab->pointer_size + 3 * 4, &pcsp_offset, 4);
+    read_dbg_memory(func_info_addr + functab_field_size + 3 * 4, &pcsp_offset, 4);
     duint pcsp_base = gopclntab->addr + pcsp_offset;
-    if (gopclntab->version == GO_VERSION::GO_116)
+    if (gopclntab->version == GO_VERSION::GO_116 || gopclntab->version == GO_VERSION::GO_118 || gopclntab->version == GO_VERSION::GO_120)
     {
         uint64_t tmp_value = 0;
-        if (!read_dbg_memory(gopclntab->addr + 8 + gopclntab->pointer_size * 5, &tmp_value, gopclntab->pointer_size))
+        if (!read_dbg_memory(gopclntab->addr + 8 + gopclntab->pointer_size * (gopclntab->version == GO_VERSION::GO_116 ? 5 : 6), &tmp_value, gopclntab->pointer_size))
         {
             return sp_comment_map;
         }

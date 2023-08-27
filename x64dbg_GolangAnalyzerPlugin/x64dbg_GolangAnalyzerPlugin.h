@@ -5,6 +5,7 @@
 #include <windows.h>
 #include <stdio.h>
 #include <psapi.h>
+#include <string>
 #include <map>
 #include "pluginsdk\_plugins.h"
 #include "util.h"

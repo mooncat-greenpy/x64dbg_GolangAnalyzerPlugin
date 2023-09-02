@@ -20,7 +20,7 @@ bool get_gopclntab(GOPCLNTAB* gopclntab)
     {
         unsigned char* mem_addr = (unsigned char*)memory_map.page[i].mbi.BaseAddress;
         size_t resion_size = memory_map.page[i].mbi.RegionSize;
-        if (resion_size <= 0)
+        if (resion_size <= 0 || memory_map.page[i].mbi.Protect == 0)
         {
             continue;
         }

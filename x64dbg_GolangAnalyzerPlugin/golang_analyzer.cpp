@@ -124,6 +124,209 @@ bool analyze_functions(const GOPCLNTAB* gopclntab)
 }
 
 
+struct MODULE_DATA
+{
+    duint type_addr = 0;
+    duint typelink_addr = 0;
+    duint typelink_len = 0;
+    duint text_addr = 0;
+};
+
+struct DATATYPE
+{
+    std::string name;
+};
+
+bool get_type_string(std::string& str, duint addr, uint8_t tflag)
+{
+    uint8_t mem[0x103] = {};
+    if (!read_dbg_memory(addr, mem, sizeof(mem)))
+    {
+        return false;
+    }
+
+    uint32_t name_idx = 2;
+    uint8_t str_size = mem[1];
+    if (str_size == 0)
+    {
+        // TODO: check go version
+        name_idx = 3;
+        str_size = mem[2];
+        if (str_size == 0)
+        {
+            return false;
+        }
+    }
+    mem[name_idx + str_size] = '\0';
+    bool is_extrastar = str_size > 0 && (tflag & 1 << 1) > 0;
+    str = (char*)&mem[name_idx + (is_extrastar ? 1 : 0)];
+    return true;
+}
+
+bool parse_datatype(DATATYPE* datatype, const GOPCLNTAB* gopclntab, duint type_base, uint32_t offset)
+{
+    uint8_t mem[8 * 50] = {};
+    if (!read_dbg_memory(type_base + offset, mem, sizeof(mem)))
+    {
+        return false;
+    }
+
+    uint8_t tflag = mem[gopclntab->pointer_size * 2 + 4];
+    uint32_t name_off = *(uint32_t*)(mem + gopclntab->pointer_size * 4 + 4 + 1 * 4);
+
+    if (!get_type_string(datatype->name, type_base + name_off, tflag))
+    {
+        return false;
+    }
+
+    DbgSetLabelAt(type_base + offset, datatype->name.c_str());
+    return true;
+}
+
+bool parse_module_data(MODULE_DATA* module_data, const GOPCLNTAB* gopclntab, duint module_data_base)
+{
+    uint8_t mem[8 * 50] = {};
+    if (!read_dbg_memory(module_data_base, mem, sizeof(mem)))
+    {
+        return false;
+    }
+
+    if (gopclntab->version == GO_VERSION::GO_120)
+    {
+        if (memcpy_s(&module_data->type_addr, sizeof(module_data->type_addr), &mem[37 * gopclntab->pointer_size], gopclntab->pointer_size))
+        {
+            return false;
+        }
+        if (memcpy_s(&module_data->typelink_addr, sizeof(module_data->type_addr), &mem[44 * gopclntab->pointer_size], gopclntab->pointer_size))
+        {
+            return false;
+        }
+        if (memcpy_s(&module_data->typelink_len, sizeof(module_data->type_addr), &mem[45 * gopclntab->pointer_size], gopclntab->pointer_size))
+        {
+            return false;
+        }
+        if (memcpy_s(&module_data->text_addr, sizeof(module_data->type_addr), &mem[22 * gopclntab->pointer_size], gopclntab->pointer_size))
+        {
+            return false;
+        }
+    }
+    else if (gopclntab->version == GO_VERSION::GO_118)
+    {
+        if (memcpy_s(&module_data->type_addr, sizeof(module_data->type_addr), &mem[35 * gopclntab->pointer_size], gopclntab->pointer_size))
+        {
+            return false;
+        }
+        if (memcpy_s(&module_data->typelink_addr, sizeof(module_data->type_addr), &mem[42 * gopclntab->pointer_size], gopclntab->pointer_size))
+        {
+            return false;
+        }
+        if (memcpy_s(&module_data->typelink_len, sizeof(module_data->type_addr), &mem[43 * gopclntab->pointer_size], gopclntab->pointer_size))
+        {
+            return false;
+        }
+        if (memcpy_s(&module_data->text_addr, sizeof(module_data->type_addr), &mem[22 * gopclntab->pointer_size], gopclntab->pointer_size))
+        {
+            return false;
+        }
+    }
+    else if (gopclntab->version == GO_VERSION::GO_116)
+    {
+        if (memcpy_s(&module_data->type_addr, sizeof(module_data->type_addr), &mem[35 * gopclntab->pointer_size], gopclntab->pointer_size))
+        {
+            return false;
+        }
+        if (memcpy_s(&module_data->typelink_addr, sizeof(module_data->type_addr), &mem[40 * gopclntab->pointer_size], gopclntab->pointer_size))
+        {
+            return false;
+        }
+        if (memcpy_s(&module_data->typelink_len, sizeof(module_data->type_addr), &mem[41 * gopclntab->pointer_size], gopclntab->pointer_size))
+        {
+            return false;
+        }
+        if (memcpy_s(&module_data->text_addr, sizeof(module_data->type_addr), &mem[22 * gopclntab->pointer_size], gopclntab->pointer_size))
+        {
+            return false;
+        }
+    }
+    else
+    {
+        if (memcpy_s(&module_data->type_addr, sizeof(module_data->type_addr), &mem[25 * gopclntab->pointer_size], gopclntab->pointer_size))
+        {
+            return false;
+        }
+        if (memcpy_s(&module_data->typelink_addr, sizeof(module_data->type_addr), &mem[30 * gopclntab->pointer_size], gopclntab->pointer_size))
+        {
+            return false;
+        }
+        if (memcpy_s(&module_data->typelink_len, sizeof(module_data->type_addr), &mem[31 * gopclntab->pointer_size], gopclntab->pointer_size))
+        {
+            return false;
+        }
+        if (memcpy_s(&module_data->text_addr, sizeof(module_data->type_addr), &mem[12 * gopclntab->pointer_size], gopclntab->pointer_size))
+        {
+            return false;
+        }
+    }
+    /*else if (gopclntab->version == GO_VERSION::GO_18)
+    {
+
+    }
+    else if (gopclntab->version == GO_VERSION::GO_17)
+    {
+
+    }*/
+    if (!DbgMemIsValidReadPtr(module_data->type_addr) ||
+        !DbgMemIsValidReadPtr(module_data->typelink_addr) ||
+        !DbgMemIsValidReadPtr(module_data->text_addr))
+    {
+        return false;
+    }
+
+    DATATYPE datatype = {};
+    duint offset = 0;
+    if (!read_dbg_memory(module_data->typelink_addr, &offset, 4 < sizeof(duint) ? 4 : sizeof(duint)))
+    {
+        return false;
+    }
+
+    if (!parse_datatype(&datatype, gopclntab, module_data->type_addr, offset))
+    {
+        return false;
+    }
+    return true;
+}
+
+bool analyze_datatypes(const GOPCLNTAB* gopclntab)
+{
+    std::vector<duint> module_data_base_list;
+    search_dbg_memory(module_data_base_list, 0, (uint8_t*)&gopclntab->addr, gopclntab->pointer_size);
+
+    for (duint module_data_base : module_data_base_list)
+    {
+        MODULE_DATA module_data = {};
+        if (!parse_module_data(&module_data, gopclntab, module_data_base))
+        {
+            continue;
+        }
+
+        uint8_t* mem = new uint8_t[module_data.typelink_len * 4];
+        if (!read_dbg_memory(module_data.typelink_addr, mem, module_data.typelink_len * 4))
+        {
+            delete[] mem;
+            continue;
+        }
+
+        for (duint i = 0; i < module_data.typelink_len; i++)
+        {
+            duint offset = ((uint32_t*)mem)[i];
+            DATATYPE datatype = {};
+            parse_datatype(&datatype, gopclntab, module_data.type_addr, offset);
+        }
+        delete[] mem;
+    }
+}
+
+
 bool command_callback(int argc, char* argv[])
 {
     if (argc < 1)
@@ -156,6 +359,11 @@ bool command_callback(int argc, char* argv[])
         if (!analyze_functions(&gopclntab_base))
         {
             goanalyzer_logputs("Golang Analyzer: Failed to analyze functions");
+            return false;
+        }
+        if (!analyze_datatypes(&gopclntab_base))
+        {
+            goanalyzer_logputs("Golang Analyzer: Failed to analyze datatypes");
             return false;
         }
         goanalyzer_logputs("Golang Analyzer: Analyze");

@@ -11,3 +11,4 @@
 
 int32_t zig_zag_decode(uint32_t value);
 bool read_dbg_memory(duint va, void* dest, duint size);
+void search_dbg_memory(std::vector<duint>& result, duint base, uint8_t* target, int target_size);

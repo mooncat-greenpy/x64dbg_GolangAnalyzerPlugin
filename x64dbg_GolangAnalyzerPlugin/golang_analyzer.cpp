@@ -326,6 +326,37 @@ bool analyze_datatypes(const GOPCLNTAB* gopclntab)
     }
 }
 
+duint get_go_routine_id(bool* result)
+{
+    if (sizeof(duint) == 4)// gopclntab.pointer_size
+    {
+        return DbgEval("[[fs:[0x14]]+0x50]", result);
+    }
+    else {
+        duint sp = DbgEval("rsp", result);
+        if (!result)
+        {
+            return false;
+        }
+        bool lo_result = false;
+        bool hi_result = false;
+        duint lo = DbgEval("[[gs:[0x28]]+0x0]", &lo_result);
+        duint hi = DbgEval("[[gs:[0x28]]+0x8]", &hi_result);
+        if (lo <= sp && sp < hi)
+        {
+            return DbgEval("[[gs:[0x28]]+0x98]", result);
+        }
+        lo = DbgEval("[r14+0x0]", &lo_result);
+        hi = DbgEval("[r14+0x8]", &hi_result);
+        if (lo <= sp && sp < hi)
+        {
+            return DbgEval("[r14+0x98]", result);
+        }
+        *result = false;
+        return 0;
+    }
+}
+
 
 bool command_callback(int argc, char* argv[])
 {
@@ -376,6 +407,20 @@ bool command_callback(int argc, char* argv[])
     {
         set_line_enabled(false);
     }
+    else if (strstr(argv[0], "gid"))
+    {
+        bool result = false;
+        duint gid = get_go_routine_id(&result);
+        if (result)
+        {
+            goanalyzer_logprintf("Golang Analyzer: gid = %p\n", gid);
+        }
+        else
+        {
+            goanalyzer_logprintf("Golang Analyzer: Failed to get gid\n");
+        }
+        return result;
+    }
 
     return true;
 }
@@ -387,6 +432,7 @@ bool init_analyzer_plugin()
     _plugin_registercommand(pluginHandle, "GoAnalyzer.analyze", command_callback, false);
     _plugin_registercommand(pluginHandle, "GoAnalyzer.line.enable", command_callback, false);
     _plugin_registercommand(pluginHandle, "GoAnalyzer.line.disable", command_callback, false);
+    _plugin_registercommand(pluginHandle, "GoAnalyzer.gid", command_callback, false);
 
     return true;
 }
@@ -398,6 +444,7 @@ bool stop_analyzer_plugin()
     _plugin_unregistercommand(pluginHandle, "GoAnalyzer.analyze");
     _plugin_unregistercommand(pluginHandle, "GoAnalyzer.line.enable");
     _plugin_unregistercommand(pluginHandle, "GoAnalyzer.line.disable");
+    _plugin_unregistercommand(pluginHandle, "GoAnalyzer.gid");
 
     return true;
 }

@@ -351,9 +351,9 @@ std::map<uint64_t, std::string> init_file_line_map(const GOPCLNTAB* gopclntab, d
 }
 
 
-std::map<uint64_t, std::string> init_sp_map(const GOPCLNTAB* gopclntab, duint func_info_addr)
+std::map<uint64_t, uint64_t> init_sp_map(const GOPCLNTAB* gopclntab, duint func_info_addr)
 {
-    std::map<uint64_t, std::string> sp_comment_map;
+    std::map<uint64_t, uint64_t> sp_comment_map;
 
     uint64_t functab_field_size = gopclntab->version == GO_VERSION::GO_118 || gopclntab->version == GO_VERSION::GO_120 ? 4 : gopclntab->pointer_size;
     uint32_t pcsp_offset = 0;
@@ -387,12 +387,7 @@ std::map<uint64_t, std::string> init_sp_map(const GOPCLNTAB* gopclntab, duint fu
         sp_size += sp_size_add;
         pc_offset += (uint64_t)byte_size * gopclntab->quantum;
 
-        if (get_line_enabled())
-        {
-            char sp_string[MAX_PATH] = { 0 };
-            _snprintf_s(sp_string, sizeof(sp_string), MAX_PATH, "sp:%lld", sp_size);
-            sp_comment_map[key] = sp_string;
-        }
+        sp_comment_map[key] = sp_size;
     }
     return sp_comment_map;
 }

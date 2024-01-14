@@ -5,21 +5,31 @@ void make_comment_map(std::map<uint64_t, std::string>& comment_map, uint64_t* fu
 {
     comment_map.clear();
 
-    std::vector<std::map<uint64_t, std::string>> comment_info;
-    comment_info.push_back(init_file_line_map(gopclntab, func_info_addr, func_size));
-    comment_info.push_back(init_sp_map(gopclntab, func_info_addr));
-
-    for (auto& i : comment_info)
+    for (auto& i : init_file_line_map(gopclntab, func_info_addr, func_size))
     {
-        for (auto& j : i)
+        if (comment_map.count(i.first))
         {
-            if (comment_map.count(j.first))
+            comment_map[i.first] += " " + i.second;
+        }
+        else
+        {
+            comment_map[i.first] = i.second;
+        }
+    }
+
+    if (get_line_enabled())
+    {
+        for (auto& i : init_sp_map(gopclntab, func_info_addr))
+        {
+            char sp_string[MAX_PATH] = { 0 };
+            _snprintf_s(sp_string, sizeof(sp_string), MAX_PATH, "sp:%lld", i.second);
+            if (comment_map.count(i.first))
             {
-                comment_map[j.first] += " " + j.second;
+                comment_map[i.first] += " " + std::string(sp_string);
             }
             else
             {
-                comment_map[j.first] = j.second;
+                comment_map[i.first] = std::string(sp_string);
             }
         }
     }

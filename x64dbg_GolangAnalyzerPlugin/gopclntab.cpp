@@ -214,7 +214,7 @@ uint32_t read_pc_data(duint addr, uint32_t* i)
 }
 
 
-bool pc_to_file_name(const GOPCLNTAB* gopclntab, duint func_info_addr, uint64_t target_pc_offset, char* file_name, size_t file_name_size)
+bool pc_to_file_name(const GOPCLNTAB* gopclntab, uint64_t func_info_addr, uint64_t target_pc_offset, char* file_name, size_t file_name_size)
 {
     uint64_t functab_field_size = gopclntab->version == GO_VERSION::GO_118 || gopclntab->version == GO_VERSION::GO_120 ? 4 : gopclntab->pointer_size;
 
@@ -351,7 +351,7 @@ std::map<uint64_t, std::string> init_file_line_map(const GOPCLNTAB* gopclntab, d
 }
 
 
-std::map<uint64_t, uint64_t> init_sp_map(const GOPCLNTAB* gopclntab, duint func_info_addr)
+std::map<uint64_t, uint64_t> init_sp_map(const GOPCLNTAB* gopclntab, duint func_info_addr, uint64_t* func_size)
 {
     std::map<uint64_t, uint64_t> sp_comment_map;
 
@@ -389,5 +389,6 @@ std::map<uint64_t, uint64_t> init_sp_map(const GOPCLNTAB* gopclntab, duint func_
 
         sp_comment_map[key] = sp_size;
     }
+    *func_size = pc_offset;
     return sp_comment_map;
 }

@@ -183,13 +183,14 @@ void set_functions_info(const std::vector<GoFunc>& go_func_list)
 }
 
 
-duint get_go_routine_id(bool* result)
+duint get_go_routine_id(const GOPCLNTAB& gopclntab, bool* result)
 {
-    if (sizeof(duint) == 4)// gopclntab.pointer_size
+    if (gopclntab.pointer_size == 4)
     {
         return DbgEval("[[fs:[0x14]]+0x50]", result);
     }
-    else {
+    else if(gopclntab.pointer_size == 8)
+    {
         duint sp = DbgEval("rsp", result);
         if (!result)
         {
@@ -197,18 +198,29 @@ duint get_go_routine_id(bool* result)
         }
         bool lo_result = false;
         bool hi_result = false;
-        duint lo = DbgEval("[[gs:[0x28]]+0x0]", &lo_result);
-        duint hi = DbgEval("[[gs:[0x28]]+0x8]", &hi_result);
-        if (lo <= sp && sp < hi)
+        if (gopclntab.version < GO_VERSION::GO_118)// < GO_117
         {
-            return DbgEval("[[gs:[0x28]]+0x98]", result);
+            duint lo = DbgEval("[[gs:[0x28]]+0x0]", &lo_result);
+            duint hi = DbgEval("[[gs:[0x28]]+0x8]", &hi_result);
+            if (lo <= sp && sp < hi)
+            {
+                return DbgEval("[[gs:[0x28]]+0x98]", result);
+            }
         }
-        lo = DbgEval("[r14+0x0]", &lo_result);
-        hi = DbgEval("[r14+0x8]", &hi_result);
-        if (lo <= sp && sp < hi)
+        if (gopclntab.version > GO_VERSION::GO_116)//  >= GO_117
         {
-            return DbgEval("[r14+0x98]", result);
+            duint lo = DbgEval("[r14+0x0]", &lo_result);
+            duint hi = DbgEval("[r14+0x8]", &hi_result);
+            if (lo <= sp && sp < hi)
+            {
+                return DbgEval("[r14+0x98]", result);
+            }
         }
+        *result = false;
+        return 0;
+    }
+    else
+    {
         *result = false;
         return 0;
     }
@@ -298,8 +310,15 @@ bool command_callback(int argc, char* argv[])
     }
     else if (strstr(argv[0], "gid"))
     {
+        GOPCLNTAB gopclntab_base = {};
+        if (!get_gopclntab(&gopclntab_base))
+        {
+            goanalyzer_logputs("Golang Analyzer: Failed to get gopclntab");
+            return false;
+        }
+
         bool result = false;
-        duint gid = get_go_routine_id(&result);
+        duint gid = get_go_routine_id(gopclntab_base, &result);
         if (result)
         {
             goanalyzer_logprintf("Golang Analyzer: gid = %p\n", gid);

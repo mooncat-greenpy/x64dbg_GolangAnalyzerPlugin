@@ -1,7 +1,5 @@
 #include "gopclntab.h"
 
-static std::vector<std::string> file_name_list;
-
 
 bool get_gopclntab(GOPCLNTAB* gopclntab)
 {
@@ -127,6 +125,11 @@ bool get_gopclntab(GOPCLNTAB* gopclntab)
                 }
                 gopclntab->file_name_table = gopclntab->addr + file_name_table_offset;
                 delete[] mem_data;
+
+                if (get_line_enabled())
+                {
+                    return analyze_file_name(gopclntab);
+                }
                 return true;
             }
         }
@@ -136,7 +139,7 @@ bool get_gopclntab(GOPCLNTAB* gopclntab)
 }
 
 
-bool analyze_file_name(const GOPCLNTAB* gopclntab)
+bool analyze_file_name(GOPCLNTAB* gopclntab)
 {
     if (gopclntab == NULL)
     {
@@ -153,7 +156,8 @@ bool analyze_file_name(const GOPCLNTAB* gopclntab)
         goanalyzer_logputs("Failed to get size");
         return false;
     }
-    file_name_list.clear();
+
+    gopclntab->file_name_list.clear();
     for (uint32_t i = 1; i < size; i++)
     {
         duint offset_addr = gopclntab->file_name_table + (duint)i * 4;
@@ -187,7 +191,7 @@ bool analyze_file_name(const GOPCLNTAB* gopclntab)
             return false;
         }
         file_name[sizeof(file_name) - 1] = '\0';
-        file_name_list.push_back(file_name);
+        gopclntab->file_name_list.push_back(file_name);
     }
     return true;
 }
@@ -280,12 +284,12 @@ bool pc_to_file_name(const GOPCLNTAB* gopclntab, uint64_t func_info_addr, uint64
                 strncpy_s(file_name, file_name_size, tmp_file_name, _TRUNCATE);
                 return true;
             }
-            if (file_no - 1 < 0 || file_name_list.size() <= (size_t)file_no - 1)
+            if (file_no - 1 < 0 || gopclntab->file_name_list.size() <= (size_t)file_no - 1)
             {
                 goanalyzer_logprintf("Error file name list index out of range: %d\n", file_no - 1);
                 return false;
             }
-            strncpy_s(file_name, file_name_size, file_name_list.at((size_t)file_no - 1).c_str(), _TRUNCATE);
+            strncpy_s(file_name, file_name_size, gopclntab->file_name_list.at((size_t)file_no - 1).c_str(), _TRUNCATE);
             return true;
         }
     }

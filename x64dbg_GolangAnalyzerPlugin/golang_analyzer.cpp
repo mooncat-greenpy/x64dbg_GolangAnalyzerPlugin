@@ -284,11 +284,6 @@ bool command_callback(int argc, char* argv[])
             goanalyzer_logputs("Golang Analyzer: Failed to get gopclntab");
             return false;
         }
-        if (!analyze_file_name(&gopclntab_base))
-        {
-            goanalyzer_logputs("Golang Analyzer: Failed to get file name");
-            return false;
-        }
         std::vector<GoFunc> go_func_list;
         if (!analyze_functions(&gopclntab_base, &go_func_list, get_line_enabled()))
         {

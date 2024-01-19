@@ -464,7 +464,7 @@ bool command_callback(int argc, char* argv[])
             "    GoAnalyzer.line.enable\n"
             "    GoAnalyzer.line.disable\n"
             "    GoAnalyzer.gid\n"
-            "    GoAnalyzer.callstack");
+            "    GoAnalyzer.callstack [ip, sp]");
     }
     else if (strstr(argv[0], "analyze"))
     {
@@ -496,10 +496,12 @@ bool command_callback(int argc, char* argv[])
     else if (strstr(argv[0], "line.enable"))
     {
         set_line_enabled(true);
+        goanalyzer_logputs("Golang Analyzer: Enabled");
     }
     else if (strstr(argv[0], "line.disable"))
     {
         set_line_enabled(false);
+        goanalyzer_logputs("Golang Analyzer: Disabled");
     }
     else if (strstr(argv[0], "gid"))
     {

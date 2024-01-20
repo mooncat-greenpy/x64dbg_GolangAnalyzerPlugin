@@ -34,7 +34,7 @@ void search_dbg_memory(std::vector<duint>& result, duint base, uint8_t* target, 
     {
         uint8_t* mem_addr = (uint8_t*)memory_map.page[i].mbi.BaseAddress;
         size_t resion_size = memory_map.page[i].mbi.RegionSize;
-        if (resion_size <= 0 || memory_map.page[i].mbi.Protect == 0)
+        if (resion_size <= 0 || resion_size > 0x1000000)
         {
             continue;
         }

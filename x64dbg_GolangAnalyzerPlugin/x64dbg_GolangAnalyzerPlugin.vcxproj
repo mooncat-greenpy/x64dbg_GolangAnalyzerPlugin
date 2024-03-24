@@ -180,6 +180,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="golang_analyzer.cpp" />
+    <ClCompile Include="golang_function.cpp" />
     <ClCompile Include="gopclntab.cpp" />
     <ClCompile Include="menu.cpp" />
     <ClCompile Include="util.cpp" />
@@ -187,6 +188,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="golang_analyzer.h" />
+    <ClInclude Include="golang_function.h" />
     <ClInclude Include="gopclntab.h" />
     <ClInclude Include="menu.h" />
     <ClInclude Include="pluginsdk\bridgelist.h" />

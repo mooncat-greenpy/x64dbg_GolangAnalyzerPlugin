@@ -8,13 +8,13 @@ uint32_t read_pc_data(duint addr, uint32_t* i)
     }
     uint32_t value = 0;
     for (uint32_t shift = 0;; shift += 7) {
-        uint32_t tmp = 0;
-        if (!read_dbg_memory(addr + (*i)++, &tmp, 1))
+        uint32_t byte_read = 0;
+        if (!read_dbg_memory(addr + (*i)++, &byte_read, 1))
         {
-            tmp = 0;
+            byte_read = 0;
         }
-        value |= (tmp & 0x7f) << shift;
-        if ((tmp & 0x80) == 0) {
+        value |= (byte_read & 0x7f) << shift;
+        if ((byte_read & 0x80) == 0) {
             break;
         }
     }
@@ -23,13 +23,7 @@ uint32_t read_pc_data(duint addr, uint32_t* i)
 
 int32_t zig_zag_decode(uint32_t value)
 {
-    if ((value & 1) != 0) {
-        value = (value >> 1) + 1;
-        return value * -1;
-    }
-    else {
-        return value >> 1;
-    }
+    return (value & 1) ? -((value >> 1) + 1) : (value >> 1);
 }
 
 bool pc_to_file_name(const GOPCLNTAB& gopclntab, duint func_info_addr, uint64_t target_pc_offset, char* file_name, size_t file_name_size)
@@ -289,30 +283,22 @@ bool analyze_functions(const GOPCLNTAB& gopclntab, std::vector<GoFunc>* go_func_
 
 void make_comment_map(const std::map<uint64_t, std::string>& file_line_map, const std::map<uint64_t, uint64_t>& sp_map, std::map<uint64_t, std::string>* comment_map)
 {
-    for (auto& i : file_line_map)
-    {
-        if (comment_map->count(i.first))
-        {
-            (*comment_map)[i.first] += " " + i.second;
+    auto append_to_comment_map = [comment_map](uint64_t key, const std::string& value) {
+        auto& entry = (*comment_map)[key];
+        if (!entry.empty()) {
+            entry += " ";
         }
-        else
-        {
-            (*comment_map)[i.first] = i.second;
-        }
+        entry += value;
+    };
+
+    for (const auto& [key, value] : file_line_map) {
+        append_to_comment_map(key, value);
     }
 
-    for (auto& i : sp_map)
-    {
-        char sp_string[MAX_PATH] = { 0 };
-        _snprintf_s(sp_string, sizeof(sp_string), MAX_PATH, "sp:%#llx", i.second);
-        if (comment_map->count(i.first))
-        {
-            (*comment_map)[i.first] += " " + std::string(sp_string);
-        }
-        else
-        {
-            (*comment_map)[i.first] = std::string(sp_string);
-        }
+    for (const auto& [key, value] : sp_map) {
+        char sp_string[MAX_PATH];
+        _snprintf_s(sp_string, sizeof(sp_string), _TRUNCATE, "sp:%#llx", value);
+        append_to_comment_map(key, sp_string);
     }
 }
 

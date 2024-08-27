@@ -13,7 +13,7 @@ duint get_go_routine_id(const GOPCLNTAB& gopclntab, bool* result)
         duint sp = DbgEval("rsp", result);
         if (!result)
         {
-            return false;
+            return 0;
         }
         bool lo_result = false;
         bool hi_result = false;

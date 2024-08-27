@@ -3,7 +3,7 @@
 
 bool read_dbg_memory(duint va, void* dest, duint size)
 {
-    if (!DbgMemIsValidReadPtr(va) || !DbgMemRead(va, dest, size))
+    if (!DbgMemRead(va, dest, size))
     {
         return false;
     }

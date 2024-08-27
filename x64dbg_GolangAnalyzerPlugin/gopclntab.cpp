@@ -128,12 +128,8 @@ bool analyze_file_name(GOPCLNTAB* gopclntab)
             return false;
         }
 
-        while (file_name_size > 1)
+        while (file_name_size > 1 && !DbgMemIsValidReadPtr(file_name_addr + file_name_size - 1))
         {
-            if (DbgMemIsValidReadPtr(file_name_addr + file_name_size))
-            {
-                break;
-            }
             file_name_size--;
         }
 
@@ -149,14 +145,15 @@ bool analyze_file_name(GOPCLNTAB* gopclntab)
 
 bool get_gopclntab(GOPCLNTAB* gopclntab)
 {
-#define GOPCLNTAB_MAGIC_COUNT 4
-    uint8_t gopclntab_magic[GOPCLNTAB_MAGIC_COUNT][4] = {
-        { 0xfb, 0xff, 0xff, 0xff },
-        { 0xfa, 0xff, 0xff, 0xff },
-        { 0xf0, 0xff, 0xff, 0xff },
-        { 0xf1, 0xff, 0xff, 0xff },
+    constexpr int GOPCLNTAB_MAGIC_COUNT = 4;
+    constexpr int GOPCLNTAB_MAGIC_LEN = 4;
+    constexpr uint8_t gopclntab_magic[GOPCLNTAB_MAGIC_COUNT][GOPCLNTAB_MAGIC_LEN] = {
+        {0xfb, 0xff, 0xff, 0xff},
+        {0xfa, 0xff, 0xff, 0xff},
+        {0xf0, 0xff, 0xff, 0xff},
+        {0xf1, 0xff, 0xff, 0xff},
     };
-    GO_VERSION go_version[GOPCLNTAB_MAGIC_COUNT] = {
+    constexpr GO_VERSION go_versions[GOPCLNTAB_MAGIC_COUNT] = {
         GO_VERSION::GO_12,
         GO_VERSION::GO_116,
         GO_VERSION::GO_118,
@@ -166,11 +163,11 @@ bool get_gopclntab(GOPCLNTAB* gopclntab)
     for (int i = 0; i < GOPCLNTAB_MAGIC_COUNT; i++)
     {
         std::vector<duint> gopclntab_addr_list;
-        search_dbg_memory(&gopclntab_addr_list, gopclntab_magic[i], sizeof(gopclntab_magic[i]));
+        search_dbg_memory(&gopclntab_addr_list, gopclntab_magic[i], GOPCLNTAB_MAGIC_LEN);
 
         for (auto addr : gopclntab_addr_list)
         {
-            if (make_gopclntab(addr, go_version[i], gopclntab))
+            if (make_gopclntab(addr, go_versions[i], gopclntab))
             {
                 return true;
             }

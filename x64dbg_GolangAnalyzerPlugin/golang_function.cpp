@@ -217,9 +217,13 @@ bool analyze_functions(const GOPCLNTAB& gopclntab, std::vector<GoFunc>* go_func_
         if (gopclntab.version == GO_VERSION::GO_118 || gopclntab.version == GO_VERSION::GO_120)
         {
             uint64_t text_addr = 0;
-            if (!read_dbg_memory(gopclntab.addr + 8 + (uint32_t)gopclntab.pointer_size * 2, &text_addr, gopclntab.pointer_size))
+            if (!read_dbg_memory(gopclntab.addr + 8 + (uint32_t)gopclntab.pointer_size * 2, &text_addr, gopclntab.pointer_size) || !DbgMemIsValidReadPtr((duint)text_addr))
             {
-                return false;
+                text_addr = get_section_start(".text");
+                if (text_addr == 0)
+                {
+                    return false;
+                }
             }
             func_addr_value += text_addr;
         }

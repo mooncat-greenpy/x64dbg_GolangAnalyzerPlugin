@@ -59,3 +59,47 @@ void search_dbg_memory(std::vector<duint>* result, const uint8_t* target, int ta
         }
     }
 }
+
+duint get_section_start(const char* sec)
+{
+    duint mod = DbgValFromString("mod.main()");
+    if (!mod)
+    {
+        return 0;
+    }
+
+    MEMMAP map{};
+    if (!DbgMemMap(&map))
+    {
+        return 0;
+    }
+
+    duint ret = 0;
+    char name[MAX_SECTION_SIZE * 5]{};
+    for (int i = 0; i < map.count; i++)
+    {
+        duint addr = (duint)map.page[i].mbi.BaseAddress;
+        if (DbgFunctions()->ModBaseFromAddr(addr) != mod)
+        {
+            continue;
+        }
+        if (!DbgFunctions()->SectionFromAddr(addr, name))
+        {
+            continue;
+        }
+        if (std::strcmp(name, sec))
+        {
+            continue;
+        }
+        if (!ret || addr < ret)
+        {
+            ret = addr;
+        }
+    }
+
+    if (map.page)
+    {
+        BridgeFree(map.page);
+    }
+    return ret;
+}

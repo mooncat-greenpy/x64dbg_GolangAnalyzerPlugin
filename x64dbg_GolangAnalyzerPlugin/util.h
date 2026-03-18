@@ -11,3 +11,4 @@
 
 bool read_dbg_memory(duint va, void* dest, duint size);
 void search_dbg_memory(std::vector<duint>* result, const uint8_t* target, int target_size);
+duint get_section_start(const char* sec);

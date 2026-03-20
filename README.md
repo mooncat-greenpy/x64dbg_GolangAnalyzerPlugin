@@ -4,6 +4,11 @@ GolangAnalyzer helps you analyze Golang binaries.
 ## Features
 - Add functions
 - Add source file and line number information to comments
+- Show the current goroutine call stack
+
+![](img/main.png)
+
+![](img/callstack.png)
 
 ## Usage
 1. Download the release
@@ -13,6 +18,8 @@ GolangAnalyzer helps you analyze Golang binaries.
 5. `GoAnalyzer.analyze`
 
 ### Commands
-- `GoAnalyzer.analyze`: Run analysis
-- `GoAnalyzer.line.enable`: Enable the ability to comment source file and line number information
-- `GoAnalyzer.line.enable`: Disable the ability to comment source file and line number information
+- `GoAnalyzer.analyze`: Run the analysis
+- `GoAnalyzer.line.enable`: Enable comments with source file and line number information
+- `GoAnalyzer.line.disable`: Disable comments with source file and line number information
+- `GoAnalyzer.gid`: Get the current goroutine ID
+- `GoAnalyzer.callstack`: Show the current goroutine call stack
